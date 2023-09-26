@@ -1,4 +1,5 @@
 import collections.abc
+import fractions
 import html
 from functools import singledispatch
 
@@ -24,18 +25,18 @@ def _(seq: collections.abc.Sequence) -> str:
 
 
 @htmlize.register
-def _(form: wtforms.Form, **kwargs) -> str:
-    content = kwargs.get("sep", "<br>").join(htmlize(field) for field in form)
-    props = htmlize(kwargs)
-    return f"<form {props}>\n" + content + "\n</form>"
-
-
-@htmlize.register
 def _(dictio: dict, sep="=") -> str:
     return " ".join(
         f'{prop}{sep}{value if not isinstance(value, dict) else htmlize(value, sep=":")}'
         for prop, value in dictio.items()
     )
+
+
+@htmlize.register
+def _(form: wtforms.Form, **kwargs) -> str:
+    content = kwargs.get("sep", "<br>").join(htmlize(field) for field in form)
+    props = htmlize(kwargs)
+    return f"<form {props}>\n" + content + "\n</form>"
 
 
 @htmlize.register
@@ -47,6 +48,16 @@ def _(field: wtforms.Field, **kwargs) -> str:
 @htmlize.register
 def _(field: wtforms.HiddenField) -> str:
     return field()
+
+
+@htmlize.register
+def _(num: fractions.Fraction) -> str:
+    return f"<pre> {num.numerator}/{num.denominator}</pre>"
+
+
+@htmlize.register
+def _(n: bool) -> str:
+    return f"<pre> {n} </pre>"
 
 
 if __name__ == "__main__":
@@ -77,6 +88,9 @@ if __name__ == "__main__":
                 ),
                 {"aiaiai": "bb"},
                 5,
+                fractions.Fraction(6, 9),
+                True,
+                "\nnhoque",
             ]
         )
 
