@@ -1,97 +1,34 @@
-import collections.abc
-import fractions
-import html
-from functools import singledispatch
-
-import wtforms
+from dataclasses import dataclass, field
+from functools import wraps
 
 
-@singledispatch
-def htmlize(obj: object) -> str:
-    text = html.escape(repr(obj))
-    return text
+@dataclass
+class Tag:
+    name: str
+    attributes: dict = field(default_factory=dict)
+    content: str | None = ''
+    selector_name: str = ''
+
+    @property
+    def html(self):
+        attributes = " ".join(f'{key}="{value}"' for key, value in self.attributes.items())
+        if self.content:
+            return f'<{self.name} {attributes}> {self.content} </{self.name}>'
+        return f'<{self.name} {attributes}/>'
 
 
-@htmlize.register
-def _(text: str) -> str:
-    content = html.escape(text).replace("\n", "<br/>\n")
-    return f"<p>{content}</p>"
+def htmlize(name, **props):
+    def wrapped(func):
+        @wraps(func)
+        def inner(*args, **kwargs):
+            result = func(*args, *kwargs)
+            return Tag(name=name, attributes=props, content=result)
+
+        return inner
+
+    return wrapped
 
 
-@htmlize.register
-def _(seq: collections.abc.Sequence) -> str:
-    content = "</li>\n<li>".join(htmlize(item) for item in seq)
-    return "<ul>\n<li>" + content + "</li>\n</ul>"
-
-
-@htmlize.register
-def _(dictio: dict, sep="=") -> str:
-    return " ".join(
-        f'{prop}{sep}{value if not isinstance(value, dict) else htmlize(value, sep=":")}'
-        for prop, value in dictio.items()
-    )
-
-
-@htmlize.register
-def _(form: wtforms.Form, **kwargs) -> str:
-    content = kwargs.get("sep", "<br>").join(htmlize(field) for field in form)
-    props = htmlize(kwargs)
-    return f"<form {props}>\n" + content + "\n</form>"
-
-
-@htmlize.register
-def _(field: wtforms.Field, **kwargs) -> str:
-    sep = kwargs.pop("sep", "<br>")
-    return f"{field.label()} {sep} {field(**kwargs)}"
-
-
-@htmlize.register
-def _(field: wtforms.HiddenField) -> str:
-    return field()
-
-
-@htmlize.register
-def _(num: fractions.Fraction) -> str:
-    return f"<pre> {num.numerator}/{num.denominator}</pre>"
-
-
-@htmlize.register
-def _(n: bool) -> str:
-    return f"<pre> {n} </pre>"
-
-
-if __name__ == "__main__":
-    from flask import Flask
-    from flask_wtf import FlaskForm
-    from wtforms.fields import DateField, StringField
-
-    app = Flask(__name__)
-    app.config["SECRET_KEY"] = "asdadsdaa"
-
-    class TesteForm(FlaskForm):
-        texto = DateField("batata")
-        texte = StringField("nhoque")
-
-    @app.route("/")
-    def _():
-        return "<br>".join(
-            htmlize(i)
-            for i in [
-                TesteForm(),
-                "Batatinhas",
-                (
-                    1,
-                    2,
-                    4,
-                    5,
-                    6,
-                ),
-                {"aiaiai": "bb"},
-                5,
-                fractions.Fraction(6, 9),
-                True,
-                "\nnhoque",
-            ]
-        )
-
-    app.run(debug=True)
+def csslize(prop: str, **styles):
+    css = (f'  {proper}: "{value}"' for proper, value in styles.items())
+    return prop + " { \n" + ";\n".join(css) + "\n}"
